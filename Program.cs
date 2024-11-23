@@ -1,80 +1,128 @@
-﻿
-
-using System.Diagnostics;
-
-const int painters = 20;
-const int circlesToPaint = 10_000;
+﻿using System.Diagnostics;
 
 
-await PaintCircles(painters, circlesToPaint);
-
-async Task PaintCircles(int paintersCount, int circlesToPaint)
+while (true)
 {
 
-    if (paintersCount < 5)
+    Console.Write("Input number of painters you would like to use: ");
+    var paintersStr = Console.ReadLine();
+
+    if (!int.TryParse(paintersStr, out var painters) || painters <= 0)
     {
-        Console.WriteLine($"Insufficient painters selected, minimum number is '5'");
-        return;
+        Console.Clear();
+        Console.WriteLine("Please input a valid number of painters > 5");
+        continue;
     }
 
-    if (circlesToPaint < 1000)
+    Console.Write("Input number of circles you would like to be painted: ");
+
+    var elementsStr = Console.ReadLine();
+
+    if (!int.TryParse(elementsStr, out var elements) || elements <= 1000)
     {
-        Console.WriteLine($"Insufficient number of circles to be painted selected, minimum number if '1000'");
-        return;
+        Console.Clear();
+        WriteSeparator();
+        Console.WriteLine("Please input a valid number of circles to paint > 1000");
+        WriteSeparator();
+        continue;
     }
 
+    var circlesToPaint = GetCircles(elements);
 
+    await PaintCircles(painters, circlesToPaint);
+}
+
+
+
+//const int painters = 20;
+//const int circlesToPaint = 10_000;
+
+
+//await PaintCircles(painters, circlesToPaint);
+
+async Task PaintCircles(int paintersCount, IList<Circle> circlesToPaint)
+{
+
+    var watch = new Stopwatch();
 
     var tasks = new List<Task>();
-    int paintedCircles = 0;
+    int chunkSize = (int)Math.Ceiling((double)circlesToPaint.Count / paintersCount);
 
-    object lockObj = new object();
-    var watch = new Stopwatch();
+    //object lockObj = new object();
 
     watch.Start();
     Console.WriteLine($"Beginning to paint '{circlesToPaint}' with '{paintersCount}' painters");
 
     for (int i = 0; i < paintersCount; i++)
     {
-        tasks.Add(Task.Run(() => Paint()));
+        var currentStart = i * chunkSize;
+
+        var currentEnd = Math.Min(currentStart + chunkSize - 1, circlesToPaint.Count - 1);
+
+        tasks.Add(Task.Run(() => Paint(currentStart, currentEnd, circlesToPaint)));
     }
 
     await Task.WhenAll(tasks);
 
 
     watch.Stop();
-    Console.WriteLine($"Finished painting '{paintedCircles}' with '{paintersCount}' painter for time '{watch.Elapsed.TotalSeconds}' seconds");
+    WriteSeparator();
+    Console.WriteLine($"Finished painting '{circlesToPaint.Count}' circles with '{paintersCount}' painters for in '{watch.Elapsed.TotalSeconds}' seconds");
+    WriteSeparator();
 
+    if (circlesToPaint.Any(x => x.IsPainted == false))
+        throw new ArgumentException($"FAILURE. Found circles not tagged as painted");
 
-    // TBD: increase inside lock before sleeping or after
-
-    // Increase before sleep = mark that the last circle WILL be painted, otherwise 2+ workers can try to paint and it time is wasted on all but 1
-    void Paint()
+    void Paint(int start, int end, IList<Circle> circlesArr)
     {
-
-        Console.WriteLine($"Painter with thread ID {Thread.CurrentThread.ManagedThreadId} is starting....");
-
-        while (true)
+        for (int i = start; i <= end; i++)
         {
-            // Lock to check if all circles have been painted and signal that we are painting a new one
-            lock (lockObj)
+            var currentCircle = circlesArr[i];
+
+            lock (currentCircle)
             {
-                if (paintedCircles == circlesToPaint)
-                {
-                    Console.WriteLine($"Painter {Thread.CurrentThread.ManagedThreadId} found that all circles are painted and is stopping work...");
-                    return;
-                }
+                if (currentCircle.IsPainted == true)
+                    throw new ArgumentException($"Painter '{Thread.CurrentThread.ManagedThreadId}' got assigned an already painted circle with ID '{currentCircle.ID}'");
 
-                else if (paintedCircles > circlesToPaint)
-                    throw new Exception($"Painter {Thread.CurrentThread.ManagedThreadId} found that more circles have been painted than required. Painted - '{paintedCircles}', required - {circlesToPaint}");
+                Console.WriteLine($"Painter '{Thread.CurrentThread.ManagedThreadId}' is starting to paint circle with ID '{currentCircle.ID}'");
 
-                paintedCircles++;
-                Console.WriteLine($"Painter {Thread.CurrentThread.ManagedThreadId} is starting to paint circle #{paintedCircles}");
+                Thread.Sleep(TimeSpan.FromMilliseconds(20));
+                currentCircle.IsPainted = true;
+
+                Console.WriteLine($"Painter '{Thread.CurrentThread.ManagedThreadId}' finished painting circle with ID '{currentCircle.ID}'");
             }
-
-            Thread.Sleep(20);
-            //await Task.Delay(TimeSpan.FromMilliseconds(20));
-            Console.WriteLine($"Painter {Thread.CurrentThread.ManagedThreadId} finished painting circle....");
         }
+
+        Console.WriteLine($"Painter '{Thread.CurrentThread.ManagedThreadId}' finished painting his allocated circles");
     }
-} 
+}
+
+
+void WriteSeparator()
+{
+    Console.WriteLine("===============================================================");
+}
+
+
+IList<Circle> GetCircles(int count)
+{
+    var result = new List<Circle>(count);
+
+    for (int i = 1; i <= count; i++)
+    {
+        result.Add(new Circle(i));
+    }
+
+    return result;
+}
+
+public class Circle
+{
+    public int ID { get; }
+    public bool IsPainted { get; set; }
+    public Circle(int Id)
+    {
+        ID = Id;
+        IsPainted = false;
+    }
+}
