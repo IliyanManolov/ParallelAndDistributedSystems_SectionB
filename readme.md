@@ -6,11 +6,13 @@ Validations include:
 - Painters must be > 5 (as per module book requirements)
 - Cirlces must be > 1000 (as per module book requirements)
 
-The task solution utilise local functions for auxiliary functions.
+The task solution utilises local functions for auxiliary functions.
 The `Circle` class used in the task contains 2 properties - int `id` and bool `isPainted` used for validating that all circles have been visited by the program.
 
 The task's execution times were tested with arrays of 50 000 elements.
 Additionally each execution was tested on a fresh project build in order for caching & optimisations to not sway the results
+
+**NOTE**: the first test is with 6 threads since 5 conflicts with the minimum requirements stated in the module book.
 
 All additional classes are located in Program.cs in order to ease the submission of files.
 There are additional Console messages that are commended out due to their large volume when testing with a lot of threads and elements. They can be used to showcase the parallel execution
