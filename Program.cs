@@ -7,7 +7,7 @@ while (true)
     Console.Write("Input number of painters you would like to use: ");
     var paintersStr = Console.ReadLine();
 
-    if (!int.TryParse(paintersStr, out var painters) || painters <= 0)
+    if (!int.TryParse(paintersStr, out var painters) || painters <= 5)
     {
         Console.Clear();
         Console.WriteLine("Please input a valid number of painters > 5");
@@ -32,26 +32,19 @@ while (true)
     await PaintCircles(painters, circlesToPaint);
 }
 
-
-
-//const int painters = 20;
-//const int circlesToPaint = 10_000;
-
-
-//await PaintCircles(painters, circlesToPaint);
-
 async Task PaintCircles(int paintersCount, IList<Circle> circlesToPaint)
 {
+    object lockObj = new object();
+    int progressPercentage = 0;
+    int paintedCircles = 0;
 
     var watch = new Stopwatch();
 
     var tasks = new List<Task>();
     int chunkSize = (int)Math.Ceiling((double)circlesToPaint.Count / paintersCount);
 
-    //object lockObj = new object();
-
     watch.Start();
-    Console.WriteLine($"Beginning to paint '{circlesToPaint}' with '{paintersCount}' painters");
+    Console.WriteLine($"Beginning to paint '{circlesToPaint.Count}' circles with '{paintersCount}' painters");
 
     for (int i = 0; i < paintersCount; i++)
     {
@@ -84,16 +77,34 @@ async Task PaintCircles(int paintersCount, IList<Circle> circlesToPaint)
                 if (currentCircle.IsPainted == true)
                     throw new ArgumentException($"Painter '{Thread.CurrentThread.ManagedThreadId}' got assigned an already painted circle with ID '{currentCircle.ID}'");
 
-                Console.WriteLine($"Painter '{Thread.CurrentThread.ManagedThreadId}' is starting to paint circle with ID '{currentCircle.ID}'");
+                //Console.WriteLine($"Painter '{Thread.CurrentThread.ManagedThreadId}' is starting to paint circle with ID '{currentCircle.ID}'");
 
                 Thread.Sleep(TimeSpan.FromMilliseconds(20));
                 currentCircle.IsPainted = true;
-
-                Console.WriteLine($"Painter '{Thread.CurrentThread.ManagedThreadId}' finished painting circle with ID '{currentCircle.ID}'");
+                Increment();
+                //Console.WriteLine($"Painter '{Thread.CurrentThread.ManagedThreadId}' finished painting circle with ID '{currentCircle.ID}'");
             }
         }
 
-        Console.WriteLine($"Painter '{Thread.CurrentThread.ManagedThreadId}' finished painting his allocated circles");
+        //Console.WriteLine($"Painter '{Thread.CurrentThread.ManagedThreadId}' finished painting his allocated circles");
+    }
+
+    void Increment()
+    {
+        lock (lockObj)
+        {
+            paintedCircles++;
+
+            int currentPercentage = (paintedCircles * 100) / circlesToPaint.Count;
+
+            // Progress in console will be updated every X%
+            // currently configured to 10
+            if (currentPercentage >= progressPercentage + 10)
+            {
+                progressPercentage = currentPercentage;
+                Console.WriteLine($"Progress.... {progressPercentage}%");
+            }
+        }
     }
 }
 
